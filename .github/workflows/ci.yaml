@@ -1,0 +1,49 @@
+name: Deploy ConfigMap using VIND
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------- Checkout of the repository----------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---------- Install kubectl ----------
+      # for this setup we need docker and kubernetes but for unbuntu docker will be there by default
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      # ---------- Login to GHCR - we don't need anytoken ---------
+      # secrets.GITHUB_TOKEN -> this will provide required token for this github registry by default in CI workflow
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # ---------- Install vcluster CLI ----------
+      - name: Install vcluster CLI
+        run: |
+          curl -L -o vcluster "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+          sudo install -c -m 0755 vcluster /usr/local/bin
+          rm -f vcluster 
+      # removing the artifact 
+
+     # ---------- Create vcluster (VIND mode) ----------
+      - name: Create vcluster
+        run: |
+          vcluster use driver docker
+          vcluster create demo-cluster
+
+     # ---------- Deploy ConfigMap ----------
+      - name: Apply ConfigMap
+        run: |
+          kubectl apply -f cfgmap.yml
+
+      # ---------- Verify ----------
+      - name: Verify ConfigMap
+        run: |
+          kubectl get configmap
+          
